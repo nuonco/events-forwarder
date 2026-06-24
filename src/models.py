@@ -73,7 +73,6 @@ class NuonWebhook(BaseModel):
         return (
             "resource:actions" in self.interests
             and self.nuontransition == "failed"
-            and self.data.kind == "workflow_step"
         )
 
     def get_action_name(self) -> Optional[str]:
