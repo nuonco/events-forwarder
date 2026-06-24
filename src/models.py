@@ -17,8 +17,8 @@ class WorkflowStep(BaseModel):
     id: str
     name: str
     idx: int
-    target_type: str  # e.g., "install_action_workflow_runs", "install_deploys"
-    target_id: str
+    target_type: Optional[str] = None  # e.g., "install_action_workflow_runs", "install_deploys"
+    target_id: Optional[str] = None
     component_id: Optional[str] = None
     sandbox_id: Optional[str] = None
     action_id: Optional[str] = None
