@@ -95,25 +95,25 @@ class DataDogClient:
         
         # Build event text with details
         text_parts = [
-            f"**Action:** {action_name}",
-            f"**Status:** {webhook.data.transition}",
-            f"**Message:** {status_message}",
+            f"Action: {action_name}",
+            f"Status: {webhook.data.transition}",
+            f"Message: {status_message}",
         ]
         
         if duration:
-            text_parts.append(f"**Duration:** {duration:.2f}s")
+            text_parts.append(f"Duration: {duration:.2f}s")
         
         if webhook.data.step:
-            text_parts.append(f"**Target Type:** {webhook.data.step.target_type}")
-            text_parts.append(f"**Execution Type:** {webhook.data.step.execution_type}")
+            text_parts.append(f"Target Type: {webhook.data.step.target_type}")
+            text_parts.append(f"Execution Type: {webhook.data.step.execution_type}")
         
         # Add links to Nuon dashboard
         if webhook.data.links:
             links = webhook.data.links
             if links.workflow:
-                text_parts.append(f"**Workflow:** {links.workflow}")
+                text_parts.append(f"Workflow: {links.workflow}")
             if links.action:
-                text_parts.append(f"**Action:** {links.action}")
+                text_parts.append(f"Action: {links.action}")
         
         text = "\n\n".join(text_parts)
         
