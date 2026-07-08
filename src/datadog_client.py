@@ -103,6 +103,10 @@ class DataDogClient:
         if duration:
             text_parts.append(f"Duration: {duration:.2f}s")
         
+        # Add Install ID and Workflow ID
+        text_parts.append(f"Install ID: {webhook.data.workflow.owner_id}")
+        text_parts.append(f"Workflow ID: {webhook.data.workflow.id}")
+        
         if webhook.data.step:
             text_parts.append(f"Target Type: {webhook.data.step.target_type}")
             text_parts.append(f"Execution Type: {webhook.data.step.execution_type}")
