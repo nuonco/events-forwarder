@@ -2,8 +2,9 @@
 
 import httpx
 import logging
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from datetime import datetime
+import time
 
 from .config import Config
 from .models import NuonWebhook
@@ -18,7 +19,8 @@ class DataDogClient:
         """Initialize the DataDog client with API credentials."""
         self.api_key = Config.DATADOG_API_KEY
         self.app_key = Config.DATADOG_APP_KEY
-        self.api_url = Config.DATADOG_API_URL
+        self.events_url = Config.DATADOG_EVENTS_URL
+        self.metrics_url = Config.DATADOG_METRICS_URL
 
     async def send_action_success_event(self, webhook: NuonWebhook) -> bool:
         """
@@ -53,7 +55,7 @@ class DataDogClient:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
-                    self.api_url,
+                    self.events_url,
                     json=event_payload,
                     headers={
                         "DD-API-KEY": self.api_key,
@@ -67,6 +69,12 @@ class DataDogClient:
                     logger.info(
                         f"Successfully sent event to DataDog for action: {action_name}"
                     )
+                    
+                    # Also send count metric
+                    tags = event_payload.get("tags", [])
+                    timestamp = event_payload.get("date_happened")
+                    await self.send_metric("nuon.action.count", 1.0, tags, timestamp)
+                    
                     return True
                 else:
                     logger.error(
@@ -180,3 +188,57 @@ class DataDogClient:
             )
         
         return event
+
+    async def send_metric(self, metric_name: str, value: float, tags: List[str], timestamp: Optional[int] = None) -> bool:
+        """
+        Send a metric to DataDog.
+        
+        Args:
+            metric_name: Name of the metric (e.g., 'nuon.action.count')
+            value: Numeric value
+            tags: List of tags
+            timestamp: Unix timestamp (defaults to now)
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        if timestamp is None:
+            timestamp = int(time.time())
+        
+        payload = {
+            "series": [
+                {
+                    "metric": metric_name,
+                    "type": 0,  # gauge
+                    "points": [
+                        {
+                            "timestamp": timestamp,
+                            "value": value
+                        }
+                    ],
+                    "tags": tags
+                }
+            ]
+        }
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.metrics_url,
+                    json=payload,
+                    headers={
+                        "DD-API-KEY": self.api_key,
+                        "Content-Type": "application/json"
+                    },
+                    timeout=10.0
+                )
+                
+                if response.status_code in [200, 202]:
+                    logger.debug(f"Successfully sent metric {metric_name} to DataDog")
+                    return True
+                else:
+                    logger.error(f"DataDog Metrics API returned {response.status_code}: {response.text}")
+                    return False
+        except Exception as e:
+            logger.error(f"Failed to send metric to DataDog: {str(e)}")
+            return False
