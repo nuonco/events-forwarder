@@ -146,12 +146,19 @@ class DataDogClient:
             f"action:{action_name.lower().replace(' ', '-')}",
             f"status:{webhook.data.transition}",
             f"org_id:{webhook.nuonorgid}",
+            f"install_id:{webhook.data.workflow.owner_id}",
+            f"workflow_id:{webhook.data.workflow.id}",
             "event_type:success",
             f"event_level:{'workflow' if is_workflow_summary else 'step'}"
         ]
         
         if webhook.data.step:
+            tags.append(f"step_id:{webhook.data.step.id}")
+            tags.append(f"step_index:{webhook.data.step.idx}")
             tags.append(f"target_type:{webhook.data.step.target_type}")
+            if webhook.data.step.target_id:
+                tags.append(f"target_id:{webhook.data.step.target_id}")
+            tags.append(f"execution_type:{webhook.data.step.execution_type}")
         
         if webhook.data.workflow:
             tags.append(f"workflow_type:{webhook.data.workflow.type}")
