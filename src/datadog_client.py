@@ -103,15 +103,18 @@ class DataDogClient:
         if duration:
             text_parts.append(f"Duration: {duration:.2f}s")
         
-        # Add Org ID, Install ID and Workflow ID
+        # Add Org ID, Install ID, Workflow ID and Workflow Type
         text_parts.append(f"Org ID: {webhook.data.org_id}")
         text_parts.append(f"Install ID: {webhook.data.workflow.owner_id}")
         text_parts.append(f"Workflow ID: {webhook.data.workflow.id}")
+        text_parts.append(f"Workflow Type: {webhook.data.workflow.type}")
         
         if webhook.data.step:
             text_parts.append(f"Step ID: {webhook.data.step.id}")
             text_parts.append(f"Step Index: {webhook.data.step.idx}")
             text_parts.append(f"Target Type: {webhook.data.step.target_type}")
+            if webhook.data.step.target_id:
+                text_parts.append(f"Target ID: {webhook.data.step.target_id}")
             text_parts.append(f"Execution Type: {webhook.data.step.execution_type}")
         
         # Add links to Nuon dashboard
