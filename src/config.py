@@ -18,8 +18,8 @@ class Config:
     # Nuon webhook verification secret
     NUON_WEBHOOK_SECRET: Optional[str] = os.getenv("NUON_WEBHOOK_SECRET")
     
-    # DataDog API endpoint
-    DATADOG_API_URL: str = "https://api.datadoghq.com/api/v1/events"
+    # DataDog API endpoint (US5 region)
+    DATADOG_API_URL: str = "https://api.us5.datadoghq.com/api/v1/events"
     
     # App settings
     PORT: int = int(os.getenv("PORT", "8080"))
