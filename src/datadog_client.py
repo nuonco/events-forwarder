@@ -30,8 +30,15 @@ class DataDogClient:
         Returns:
             True if successful, False otherwise
         """
-        action_name = webhook.get_action_name() or "Unknown Action"
-        status_message = f"Action completed successfully"
+        # Determine if this is a workflow summary or step event
+        is_workflow_summary = webhook.data.step is None
+        
+        if is_workflow_summary:
+            action_name = "Workflow Summary"
+            status_message = "Workflow completed successfully"
+        else:
+            action_name = webhook.get_action_name() or "Unknown Action"
+            status_message = "Action completed successfully"
         duration = webhook.get_duration_seconds()
         
         # Build the DataDog event payload
@@ -90,8 +97,12 @@ class DataDogClient:
         Returns:
             Dictionary formatted for DataDog Events API
         """
-        # Build event title
-        title = f"✅ Nuon Action Succeeded: {action_name}"
+        # Build event title based on event type
+        is_workflow_summary = webhook.data.step is None
+        if is_workflow_summary:
+            title = "✅ Nuon Action Workflow Complete"
+        else:
+            title = f"✅ Nuon Action Succeeded: {action_name}"
         
         # Build event text with details
         text_parts = [
@@ -135,7 +146,8 @@ class DataDogClient:
             f"action:{action_name.lower().replace(' ', '-')}",
             f"status:{webhook.data.transition}",
             f"org_id:{webhook.nuonorgid}",
-            "event_type:success"
+            "event_type:success",
+            f"event_level:{'workflow' if is_workflow_summary else 'step'}"
         ]
         
         if webhook.data.step:
