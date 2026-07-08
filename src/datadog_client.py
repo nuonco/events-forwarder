@@ -112,7 +112,8 @@ class DataDogClient:
         if webhook.data.step:
             text_parts.append(f"Step ID: {webhook.data.step.id}")
             text_parts.append(f"Step Index: {webhook.data.step.idx}")
-            text_parts.append(f"Target Type: {webhook.data.step.target_type}")
+            if webhook.data.step.target_type:
+                text_parts.append(f"Target Type: {webhook.data.step.target_type}")
             if webhook.data.step.target_id:
                 text_parts.append(f"Target ID: {webhook.data.step.target_id}")
             text_parts.append(f"Execution Type: {webhook.data.step.execution_type}")
