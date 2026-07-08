@@ -158,6 +158,7 @@ class DataDogClient:
             tags.append(f"target_type:{webhook.data.step.target_type}")
             if webhook.data.step.target_id:
                 tags.append(f"target_id:{webhook.data.step.target_id}")
+            tags.append(f"execution_type:{webhook.data.step.execution_type}")
         
         if webhook.data.workflow:
             tags.append(f"workflow_type:{webhook.data.workflow.type}")
