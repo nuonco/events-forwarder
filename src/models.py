@@ -68,11 +68,11 @@ class NuonWebhook(BaseModel):
     interests: List[str]  # e.g., ["resource:actions", "op:actions.run"]
     data: WebhookData
 
-    def is_action_failure(self) -> bool:
-        """Check if this webhook represents a failed action."""
+    def is_action_success(self) -> bool:
+        """Check if this webhook represents a successful action."""
         return (
             "resource:actions" in self.interests
-            and self.nuontransition == "failed"
+            and self.nuontransition == "succeeded"
         )
 
     def get_action_name(self) -> Optional[str]:
