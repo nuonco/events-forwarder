@@ -20,9 +20,9 @@ class DataDogClient:
         self.app_key = Config.DATADOG_APP_KEY
         self.api_url = Config.DATADOG_API_URL
 
-    async def send_action_failure_event(self, webhook: NuonWebhook) -> bool:
+    async def send_action_success_event(self, webhook: NuonWebhook) -> bool:
         """
-        Send an action failure event to DataDog.
+        Send an action success event to DataDog.
         
         Args:
             webhook: The parsed Nuon webhook payload
@@ -31,14 +31,14 @@ class DataDogClient:
             True if successful, False otherwise
         """
         action_name = webhook.get_action_name() or "Unknown Action"
-        error_message = webhook.get_error_message() or "No error message provided"
+        status_message = f"Action completed successfully"
         duration = webhook.get_duration_seconds()
         
         # Build the DataDog event payload
         event_payload = self._build_event_payload(
             webhook=webhook,
             action_name=action_name,
-            error_message=error_message,
+            status_message=status_message,
             duration=duration
         )
         
@@ -75,7 +75,7 @@ class DataDogClient:
         self,
         webhook: NuonWebhook,
         action_name: str,
-        error_message: str,
+        status_message: str,
         duration: Optional[float]
     ) -> Dict[str, Any]:
         """
@@ -83,21 +83,21 @@ class DataDogClient:
         
         Args:
             webhook: The parsed Nuon webhook
-            action_name: Name of the failed action
-            error_message: Error message from the failure
+            action_name: Name of the successful action
+            status_message: Success status message
             duration: Duration in seconds (if available)
             
         Returns:
             Dictionary formatted for DataDog Events API
         """
         # Build event title
-        title = f"🚨 Nuon Action Failed: {action_name}"
+        title = f"✅ Nuon Action Succeeded: {action_name}"
         
         # Build event text with details
         text_parts = [
             f"**Action:** {action_name}",
             f"**Status:** {webhook.data.transition}",
-            f"**Error:** {error_message}",
+            f"**Message:** {status_message}",
         ]
         
         if duration:
@@ -124,7 +124,7 @@ class DataDogClient:
             f"action:{action_name.lower().replace(' ', '-')}",
             f"status:{webhook.data.transition}",
             f"org_id:{webhook.nuonorgid}",
-            "alert_type:error"
+            "event_type:success"
         ]
         
         if webhook.data.step:
@@ -137,8 +137,8 @@ class DataDogClient:
         event = {
             "title": title,
             "text": text,
-            "alert_type": "error",
-            "priority": "normal",
+            "alert_type": "info",
+            "priority": "low",
             "tags": tags,
             "source_type_name": "nuon",
         }

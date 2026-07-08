@@ -76,35 +76,35 @@ class WebhookHandler:
             f"interests={webhook.interests}"
         )
         
-        # Check if this is an action failure
-        if webhook.is_action_failure():
+        # Check if this is a successful action
+        if webhook.is_action_success():
             action_name = webhook.get_action_name()
-            logger.info(f"Processing action failure: {action_name}")
+            logger.info(f"Processing action success: {action_name}")
             
             # Send to DataDog
-            success = await self.datadog_client.send_action_failure_event(webhook)
+            success = await self.datadog_client.send_action_success_event(webhook)
             
             if success:
                 return {
                     "status": "success",
-                    "message": f"Action failure event sent to DataDog: {action_name}",
+                    "message": f"Action success event sent to DataDog: {action_name}",
                     "action": action_name
                 }
             else:
-                logger.error(f"Failed to send action failure to DataDog: {action_name}")
+                logger.error(f"Failed to send action success to DataDog: {action_name}")
                 raise HTTPException(
                     status_code=500,
                     detail="Failed to send event to DataDog"
                 )
         else:
-            # Not an action failure - log and ignore
+            # Not a successful action - log and ignore
             logger.info(
-                f"Webhook is not an action failure (kind={webhook.nuonkind}, "
+                f"Webhook is not a successful action (kind={webhook.nuonkind}, "
                 f"transition={webhook.nuontransition}) - ignoring"
             )
             return {
                 "status": "ignored",
-                "message": "Not an action failure - no action taken",
+                "message": "Not a successful action - no action taken",
                 "kind": webhook.nuonkind,
                 "transition": webhook.nuontransition
             }
