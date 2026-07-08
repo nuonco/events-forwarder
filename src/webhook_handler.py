@@ -76,6 +76,16 @@ class WebhookHandler:
             f"interests={webhook.interests}"
         )
         
+        # Debug: Log full webhook structure to identify available fields
+        logger.info(f"DEBUG - Workflow data: {webhook.data.workflow}")
+        if webhook.data.step:
+            logger.info(f"DEBUG - Step data: {webhook.data.step}")
+        if webhook.data.outcome:
+            logger.info(f"DEBUG - Outcome data: {webhook.data.outcome}")
+        if webhook.data.links:
+            logger.info(f"DEBUG - Links data: {webhook.data.links}")
+        logger.info(f"DEBUG - Full data object: {webhook.data}")
+        
         # Check if this is a successful action
         if webhook.is_action_success():
             action_name = webhook.get_action_name()
