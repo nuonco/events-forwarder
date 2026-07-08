@@ -83,6 +83,9 @@ class DataDogClient:
                     if webhook.data.step:
                         await self.send_metric("nuon.action.step_index", float(webhook.data.step.idx), tags, timestamp)
                     
+                    # Send success metric (1 for success, for easy success rate calculation)
+                    await self.send_metric("nuon.action.success", 1.0, tags, timestamp)
+                    
                     return True
                 else:
                     logger.error(
