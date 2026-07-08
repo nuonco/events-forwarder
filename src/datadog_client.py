@@ -79,6 +79,10 @@ class DataDogClient:
                     if duration:
                         await self.send_metric("nuon.action.duration", duration, tags, timestamp)
                     
+                    # Send step_index metric if this is a step event
+                    if webhook.data.step:
+                        await self.send_metric("nuon.action.step_index", float(webhook.data.step.idx), tags, timestamp)
+                    
                     return True
                 else:
                     logger.error(
