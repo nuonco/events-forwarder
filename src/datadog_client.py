@@ -70,10 +70,14 @@ class DataDogClient:
                         f"Successfully sent event to DataDog for action: {action_name}"
                     )
                     
-                    # Also send count metric
+                    # Also send metrics
                     tags = event_payload.get("tags", [])
                     timestamp = event_payload.get("date_happened")
                     await self.send_metric("nuon.action.count", 1.0, tags, timestamp)
+                    
+                    # Send duration metric if available
+                    if duration:
+                        await self.send_metric("nuon.action.duration", duration, tags, timestamp)
                     
                     return True
                 else:
