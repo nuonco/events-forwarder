@@ -146,6 +146,8 @@ class DataDogClient:
             f"action:{action_name.lower().replace(' ', '-')}",
             f"status:{webhook.data.transition}",
             f"org_id:{webhook.nuonorgid}",
+            f"install_id:{webhook.data.workflow.owner_id}",
+            f"workflow_id:{webhook.data.workflow.id}",
             "event_type:success",
             f"event_level:{'workflow' if is_workflow_summary else 'step'}"
         ]
