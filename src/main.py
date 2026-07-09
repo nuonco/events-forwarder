@@ -62,6 +62,19 @@ async def receive_webhook(request: Request):
     """
     logger.info("Received webhook request")
     
+    # COMPONENT TEST: Log webhook type and transition to test failure webhooks
+    try:
+        import json
+        raw_body = await request.body()
+        payload = json.loads(raw_body)
+        interests = payload.get("interests", [])
+        transition = payload.get("nuontransition", "unknown")
+        kind = payload.get("nuonkind", "unknown")
+        
+        logger.info(f"WEBHOOK TEST - Kind: {kind}, Interests: {interests}, Transition: {transition}")
+    except Exception as debug_error:
+        logger.warning(f"Debug logging failed (non-critical): {debug_error}")
+    
     try:
         result = await webhook_handler.process_webhook(request)
         return JSONResponse(
