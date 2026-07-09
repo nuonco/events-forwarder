@@ -85,10 +85,11 @@ class NuonWebhook(BaseModel):
     # COMPONENT HELPERS
     def is_component_success(self) -> bool:
         """Check if this webhook represents a successful component deploy step."""
+        # Match all steps in manual_deploy workflows (components and runner health)
         return (
-            "resource:components" in self.interests
-            and self.nuontransition == "succeeded"
+            self.nuontransition == "succeeded"
             and self.data.workflow.type == "manual_deploy"
+            and ("resource:components" in self.interests or "resource:runners" in self.interests)
         )
 
     def get_component_name(self) -> Optional[str]:
