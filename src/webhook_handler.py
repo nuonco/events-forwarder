@@ -3,7 +3,6 @@
 import hmac
 import hashlib
 import logging
-from typing import Optional
 from fastapi import Request, HTTPException
 
 from .config import Config
@@ -86,7 +85,7 @@ class WebhookHandler:
             logger.info(f"DEBUG - Links data: {webhook.data.links}")
         logger.info(f"DEBUG - Full data object: {webhook.data}")
         
-        # Check if this is a successful action
+        # ACTION-SPECIFIC PROCESSING
         if webhook.is_action_success():
             action_name = webhook.get_action_name()
             logger.info(f"Processing action success: {action_name}")
@@ -106,15 +105,28 @@ class WebhookHandler:
                     status_code=500,
                     detail="Failed to send event to DataDog"
                 )
+        
+        # COMPONENT-SPECIFIC PROCESSING
+        elif webhook.is_component_success():
+            component_name = webhook.get_component_name()
+            logger.info(f"Processing component success: {component_name}")
+            
+            # TODO: Send to DataDog
+            return {
+                "status": "success",
+                "message": f"Component success event processed: {component_name}",
+                "component": component_name
+            }
+        
         else:
-            # Not a successful action - log and ignore
+            # Not a tracked webhook type - log and ignore
             logger.info(
-                f"Webhook is not a successful action (kind={webhook.nuonkind}, "
-                f"transition={webhook.nuontransition}) - ignoring"
+                f"Webhook is not a tracked event (kind={webhook.nuonkind}, "
+                f"transition={webhook.nuontransition}, interests={webhook.interests}) - ignoring"
             )
             return {
                 "status": "ignored",
-                "message": "Not a successful action - no action taken",
+                "message": "Not a tracked event - no action taken",
                 "kind": webhook.nuonkind,
                 "transition": webhook.nuontransition
             }
