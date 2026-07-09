@@ -138,6 +138,23 @@ class DataDogClient:
                     logger.info(
                         f"Successfully sent event to DataDog for component: {component_name}"
                     )
+                    
+                    # Also send metrics
+                    tags = event_payload.get("tags", [])
+                    timestamp = event_payload.get("date_happened")
+                    await self.send_metric("nuon.component.execution.count", 1.0, tags, timestamp)
+                    
+                    # Send duration metric if available
+                    if duration:
+                        await self.send_metric("nuon.component.execution.duration", duration, tags, timestamp)
+                    
+                    # Send step_index metric (component steps always have step data)
+                    if webhook.data.step:
+                        await self.send_metric("nuon.component.execution.step_index", float(webhook.data.step.idx), tags, timestamp)
+                    
+                    # Send success metric (1 for success, for easy success rate calculation)
+                    await self.send_metric("nuon.component.execution.success", 1.0, tags, timestamp)
+                    
                     return True
                 else:
                     logger.error(
