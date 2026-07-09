@@ -1,7 +1,7 @@
 """Pydantic models for Nuon CloudEvents webhook payloads."""
 
 from typing import Optional, List
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 
 class Workflow(BaseModel):
@@ -68,6 +68,7 @@ class NuonWebhook(BaseModel):
     interests: List[str]  # e.g., ["resource:actions", "op:actions.run"]
     data: WebhookData
 
+    # ACTION HELPERS
     def is_action_success(self) -> bool:
         """Check if this webhook represents a successful action."""
         return (
@@ -81,6 +82,22 @@ class NuonWebhook(BaseModel):
             return self.data.step.name
         return None
 
+    # COMPONENT HELPERS
+    def is_component_success(self) -> bool:
+        """Check if this webhook represents a successful component deploy step."""
+        return (
+            "resource:components" in self.interests
+            and self.nuontransition == "succeeded"
+            and self.data.workflow.type == "manual_deploy"
+        )
+
+    def get_component_name(self) -> Optional[str]:
+        """Extract the component step name from the webhook."""
+        if self.data.step:
+            return self.data.step.name
+        return None
+
+    # SHARED HELPERS
     def get_error_message(self) -> Optional[str]:
         """Extract the error message if present."""
         if self.data.outcome:

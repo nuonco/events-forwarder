@@ -97,6 +97,76 @@ class DataDogClient:
             logger.error(f"Failed to send event to DataDog: {str(e)}")
             return False
 
+    async def send_component_success_event(self, webhook: NuonWebhook) -> bool:
+        """
+        Send a component deploy success event to DataDog.
+        
+        Args:
+            webhook: The parsed Nuon webhook payload
+            
+        Returns:
+            True if successful, False otherwise
+        """
+        # Component deploys always have step data
+        component_name = webhook.get_component_name() or "Unknown Component"
+        status_message = "Component deploy step completed successfully"
+        duration = webhook.get_duration_seconds()
+        
+        # Build the DataDog event payload
+        event_payload = self._build_component_event_payload(
+            webhook=webhook,
+            component_name=component_name,
+            status_message=status_message,
+            duration=duration
+        )
+        
+        # Send to DataDog
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    self.events_url,
+                    json=event_payload,
+                    headers={
+                        "DD-API-KEY": self.api_key,
+                        "DD-APPLICATION-KEY": self.app_key,
+                        "Content-Type": "application/json"
+                    },
+                    timeout=10.0
+                )
+                
+                if response.status_code in [200, 202]:
+                    logger.info(
+                        f"Successfully sent event to DataDog for component: {component_name}"
+                    )
+                    
+                    # Also send metrics
+                    tags = event_payload.get("tags", [])
+                    timestamp = event_payload.get("date_happened")
+                    await self.send_metric("nuon.component.execution.count", 1.0, tags, timestamp)
+                    
+                    # Send duration metric if available
+                    if duration:
+                        await self.send_metric("nuon.component.execution.duration", duration, tags, timestamp)
+                    
+                    # Send step_index metric (component steps always have step data)
+                    if webhook.data.step:
+                        await self.send_metric("nuon.component.execution.step_index", float(webhook.data.step.idx), tags, timestamp)
+                    
+                    # Send success metric (1 for success, for easy success rate calculation)
+                    await self.send_metric("nuon.component.execution.success", 1.0, tags, timestamp)
+                    
+                    return True
+                else:
+                    logger.error(
+                        f"DataDog API returned {response.status_code}: {response.text}"
+                    )
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Failed to send event to DataDog: {str(e)}")
+            return False
+
+    # ACTION EVENT FORMATTING
     def _build_event_payload(
         self,
         webhook: NuonWebhook,
@@ -181,6 +251,118 @@ class DataDogClient:
         
         if webhook.data.workflow:
             tags.append(f"workflow_type:{webhook.data.workflow.type}")
+        
+        # Build the event payload
+        event = {
+            "title": title,
+            "text": text,
+            "alert_type": "info",
+            "priority": "low",
+            "tags": tags,
+            "source_type_name": "nuon",
+        }
+        
+        # Add timestamp if available
+        if webhook.time:
+            event["date_happened"] = int(
+                datetime.fromisoformat(webhook.time.replace('Z', '+00:00')).timestamp()
+            )
+        
+        return event
+
+    # COMPONENT EVENT FORMATTING
+    def _build_component_event_payload(
+        self,
+        webhook: NuonWebhook,
+        component_name: str,
+        status_message: str,
+        duration: Optional[float]
+    ) -> Dict[str, Any]:
+        """
+        Build the DataDog event payload for component deploys.
+        
+        Args:
+            webhook: The parsed Nuon webhook
+            component_name: Name of the component step
+            status_message: Success status message
+            duration: Duration in seconds (if available)
+            
+        Returns:
+            Dictionary formatted for DataDog Events API
+        """
+        # Build event title
+        title = f"✅ Nuon Component Deploy: {component_name}"
+        
+        # Build event text with details
+        text_parts = [
+            f"Component Deploy: {component_name}",
+            f"Status: {webhook.data.transition}",
+            f"Message: {status_message}",
+        ]
+        
+        if duration:
+            text_parts.append(f"Duration: {duration:.2f}s")
+        
+        # Add Org ID, Install ID, Workflow ID and Workflow Type
+        text_parts.append(f"Org ID: {webhook.data.org_id}")
+        text_parts.append(f"Install ID: {webhook.data.workflow.owner_id}")
+        text_parts.append(f"Workflow ID: {webhook.data.workflow.id}")
+        text_parts.append(f"Workflow Type: {webhook.data.workflow.type}")
+        
+        # Component steps always have step data
+        if webhook.data.step:
+            # Add Component ID if present
+            if webhook.data.step.component_id:
+                text_parts.append(f"Component ID: {webhook.data.step.component_id}")
+            
+            text_parts.append(f"Step ID: {webhook.data.step.id}")
+            text_parts.append(f"Step Index: {webhook.data.step.idx}")
+            
+            if webhook.data.step.target_type:
+                text_parts.append(f"Target Type: {webhook.data.step.target_type}")
+            if webhook.data.step.target_id:
+                text_parts.append(f"Target ID: {webhook.data.step.target_id}")
+            
+            text_parts.append(f"Execution Type: {webhook.data.step.execution_type}")
+        
+        # Add links to Nuon dashboard
+        if webhook.data.links:
+            links = webhook.data.links
+            if links.component:
+                text_parts.append(f"Component: {links.component}")
+            if links.workflow:
+                text_parts.append(f"Workflow: {links.workflow}")
+        
+        text = "\n\n".join(text_parts)
+        
+        # Build tags for filtering/alerting
+        tags = [
+            "source:nuon",
+            "service:datadog-actions-monitor",
+            "resource_type:components",
+            f"component:{component_name.lower().replace(' ', '-')}",
+            f"status:{webhook.data.transition}",
+            f"org_id:{webhook.nuonorgid}",
+            f"install_id:{webhook.data.workflow.owner_id}",
+            f"workflow_id:{webhook.data.workflow.id}",
+            f"workflow_type:{webhook.data.workflow.type}",
+            "event_type:success",
+            "event_level:step"
+        ]
+        
+        if webhook.data.step:
+            tags.append(f"step_id:{webhook.data.step.id}")
+            tags.append(f"step_index:{webhook.data.step.idx}")
+            
+            if webhook.data.step.component_id:
+                tags.append(f"component_id:{webhook.data.step.component_id}")
+            
+            if webhook.data.step.target_type:
+                tags.append(f"target_type:{webhook.data.step.target_type}")
+            if webhook.data.step.target_id:
+                tags.append(f"target_id:{webhook.data.step.target_id}")
+            
+            tags.append(f"execution_type:{webhook.data.step.execution_type}")
         
         # Build the event payload
         event = {
