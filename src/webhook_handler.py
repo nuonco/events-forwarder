@@ -111,12 +111,21 @@ class WebhookHandler:
             component_name = webhook.get_component_name()
             logger.info(f"Processing component success: {component_name}")
             
-            # TODO: Send to DataDog
-            return {
-                "status": "success",
-                "message": f"Component success event processed: {component_name}",
-                "component": component_name
-            }
+            # Send to DataDog
+            success = await self.datadog_client.send_component_success_event(webhook)
+            
+            if success:
+                return {
+                    "status": "success",
+                    "message": f"Component success event sent to DataDog: {component_name}",
+                    "component": component_name
+                }
+            else:
+                logger.error(f"Failed to send component success to DataDog: {component_name}")
+                raise HTTPException(
+                    status_code=500,
+                    detail="Failed to send event to DataDog"
+                )
         
         else:
             # Not a tracked webhook type - log and ignore
