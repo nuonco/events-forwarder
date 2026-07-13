@@ -7,7 +7,7 @@ from fastapi import Request, HTTPException
 
 from .config import Config
 from .models import NuonWebhook
-from .datadog_client import DataDogClient
+from .integrations.datadog.client import DataDogClient
 
 logger = logging.getLogger(__name__)
 
@@ -16,8 +16,17 @@ class WebhookHandler:
     """Handles Nuon webhook verification and processing."""
 
     def __init__(self):
-        """Initialize the webhook handler."""
-        self.datadog_client = DataDogClient()
+        """Initialize the webhook handler with configured integrations."""
+        # Initialize all enabled integrations
+        self.integrations = []
+        
+        # DataDog integration (always enabled for now)
+        self.integrations.append(DataDogClient())
+        
+        # Future integrations will be added here:
+        # if Config.PAGERDUTY_ENABLED:
+        #     self.integrations.append(PagerDutyClient())
+        
         self.webhook_secret = Config.NUON_WEBHOOK_SECRET
 
     async def process_webhook(self, request: Request) -> dict:
@@ -85,47 +94,44 @@ class WebhookHandler:
             logger.info(f"DEBUG - Links data: {webhook.data.links}")
         logger.info(f"DEBUG - Full data object: {webhook.data}")
         
+        # PROCESS TRACKED EVENTS
+        # Send to configured integrations
+        
         # ACTION-SPECIFIC PROCESSING
         if webhook.is_action_success():
             action_name = webhook.get_action_name()
             logger.info(f"Processing action success: {action_name}")
             
-            # Send to DataDog
-            success = await self.datadog_client.send_action_success_event(webhook)
+            # Send to integrations
+            await self._send_to_integrations(
+                webhook,
+                event_type="action",
+                event_name=action_name
+            )
             
-            if success:
-                return {
-                    "status": "success",
-                    "message": f"Action success event sent to DataDog: {action_name}",
-                    "action": action_name
-                }
-            else:
-                logger.error(f"Failed to send action success to DataDog: {action_name}")
-                raise HTTPException(
-                    status_code=500,
-                    detail="Failed to send event to DataDog"
-                )
+            return {
+                "status": "success",
+                "message": f"Action success event processed: {action_name}",
+                "action": action_name
+            }
         
         # COMPONENT-SPECIFIC PROCESSING
         elif webhook.is_component_success():
             component_name = webhook.get_component_name()
             logger.info(f"Processing component success: {component_name}")
             
-            # Send to DataDog
-            success = await self.datadog_client.send_component_success_event(webhook)
+            # Send to integrations
+            await self._send_to_integrations(
+                webhook,
+                event_type="component",
+                event_name=component_name
+            )
             
-            if success:
-                return {
-                    "status": "success",
-                    "message": f"Component success event sent to DataDog: {component_name}",
-                    "component": component_name
-                }
-            else:
-                logger.error(f"Failed to send component success to DataDog: {component_name}")
-                raise HTTPException(
-                    status_code=500,
-                    detail="Failed to send event to DataDog"
-                )
+            return {
+                "status": "success",
+                "message": f"Component success event processed: {component_name}",
+                "component": component_name
+            }
         
         else:
             # Not a tracked webhook type - log and ignore
@@ -139,6 +145,53 @@ class WebhookHandler:
                 "kind": webhook.nuonkind,
                 "transition": webhook.nuontransition
             }
+
+    async def _send_to_integrations(
+        self,
+        webhook: NuonWebhook,
+        event_type: str,
+        event_name: str
+    ) -> bool:
+        """
+        Send webhook to all configured integrations.
+        
+        Args:
+            webhook: The parsed Nuon webhook
+            event_type: Type of event ("action" or "component")
+            event_name: Name of the event for logging
+            
+        Returns:
+            True if all integrations succeeded
+            
+        Raises:
+            HTTPException: If any integration forwarding fails
+        """
+        # Send to all configured integrations
+        for integration in self.integrations:
+            integration_name = integration.__class__.__name__
+            
+            try:
+                success = await integration.send(webhook, event_type)
+                if success:
+                    logger.info(f"Sent {event_type} event to {integration_name}: {event_name}")
+                else:
+                    logger.error(f"Failed to send {event_type} event to {integration_name}: {event_name}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to forward event to {integration_name}"
+                    )
+            except HTTPException:
+                # Re-raise HTTPExceptions from integrations
+                raise
+            except Exception as e:
+                # Catch any unexpected errors
+                logger.error(f"Unexpected error sending to {integration_name}: {str(e)}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Unexpected error forwarding to {integration_name}"
+                )
+        
+        return True
 
     def _verify_signature(self, raw_body: bytes, signature: str) -> bool:
         """
