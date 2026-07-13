@@ -5,6 +5,7 @@ import logging
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 import time
+from fastapi import HTTPException
 
 from ...config import Config
 from ...models import NuonWebhook
@@ -23,6 +24,33 @@ class DataDogClient:
         self.events_url = Config.DATADOG_EVENTS_URL
         self.metrics_url = Config.DATADOG_METRICS_URL
 
+    # BASE INTEGRATION INTERFACE
+    async def send(self, webhook: NuonWebhook, event_type: str) -> bool:
+        """
+        Send webhook to DataDog (implements BaseIntegration interface).
+        
+        Args:
+            webhook: The parsed Nuon webhook
+            event_type: Type of event ("action" or "component")
+            
+        Returns:
+            True if successful
+            
+        Raises:
+            HTTPException: If sending fails
+        """
+        if event_type == "action":
+            return await self.send_action_success_event(webhook)
+        elif event_type == "component":
+            return await self.send_component_success_event(webhook)
+        else:
+            logger.error(f"Unknown event type: {event_type}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Unknown event type: {event_type}"
+            )
+
+    # ACTION EVENT METHODS
     async def send_action_success_event(self, webhook: NuonWebhook) -> bool:
         """
         Send an action success event to DataDog.
@@ -98,6 +126,7 @@ class DataDogClient:
             logger.error(f"Failed to send event to DataDog: {str(e)}")
             return False
 
+    # COMPONENT EVENT METHODS
     async def send_component_success_event(self, webhook: NuonWebhook) -> bool:
         """
         Send a component deploy success event to DataDog.
@@ -167,6 +196,7 @@ class DataDogClient:
             logger.error(f"Failed to send event to DataDog: {str(e)}")
             return False
 
+    # METRICS METHODS
     async def send_metric(self, metric_name: str, value: float, tags: List[str], timestamp: Optional[int] = None) -> bool:
         """
         Send a metric to DataDog.

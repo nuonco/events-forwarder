@@ -16,8 +16,17 @@ class WebhookHandler:
     """Handles Nuon webhook verification and processing."""
 
     def __init__(self):
-        """Initialize the webhook handler."""
-        self.datadog_client = DataDogClient()
+        """Initialize the webhook handler with configured integrations."""
+        # Initialize all enabled integrations
+        self.integrations = []
+        
+        # DataDog integration (always enabled for now)
+        self.integrations.append(DataDogClient())
+        
+        # Future integrations will be added here:
+        # if Config.PAGERDUTY_ENABLED:
+        #     self.integrations.append(PagerDutyClient())
+        
         self.webhook_secret = Config.NUON_WEBHOOK_SECRET
 
     async def process_webhook(self, request: Request) -> dict:
@@ -152,32 +161,34 @@ class WebhookHandler:
             event_name: Name of the event for logging
             
         Returns:
-            True if all integrations succeeded, False otherwise
+            True if all integrations succeeded
             
         Raises:
-            HTTPException: If integration forwarding fails
+            HTTPException: If any integration forwarding fails
         """
-        # DATADOG INTEGRATION
-        if event_type == "action":
-            success = await self.datadog_client.send_action_success_event(webhook)
-            if success:
-                logger.info(f"Sent {event_type} event to DataDog: {event_name}")
-            else:
-                logger.error(f"Failed to send {event_type} event to DataDog: {event_name}")
+        # Send to all configured integrations
+        for integration in self.integrations:
+            integration_name = integration.__class__.__name__
+            
+            try:
+                success = await integration.send(webhook, event_type)
+                if success:
+                    logger.info(f"Sent {event_type} event to {integration_name}: {event_name}")
+                else:
+                    logger.error(f"Failed to send {event_type} event to {integration_name}: {event_name}")
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to forward event to {integration_name}"
+                    )
+            except HTTPException:
+                # Re-raise HTTPExceptions from integrations
+                raise
+            except Exception as e:
+                # Catch any unexpected errors
+                logger.error(f"Unexpected error sending to {integration_name}: {str(e)}")
                 raise HTTPException(
                     status_code=500,
-                    detail="Failed to forward event to integrations"
-                )
-        
-        elif event_type == "component":
-            success = await self.datadog_client.send_component_success_event(webhook)
-            if success:
-                logger.info(f"Sent {event_type} event to DataDog: {event_name}")
-            else:
-                logger.error(f"Failed to send {event_type} event to DataDog: {event_name}")
-                raise HTTPException(
-                    status_code=500,
-                    detail="Failed to forward event to integrations"
+                    detail=f"Unexpected error forwarding to {integration_name}"
                 )
         
         return True
