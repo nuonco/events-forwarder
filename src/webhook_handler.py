@@ -7,7 +7,7 @@ from fastapi import Request, HTTPException
 
 from .config import Config
 from .models import NuonWebhook
-from .datadog_client import DataDogClient
+from .integrations.datadog.client import DataDogClient
 
 logger = logging.getLogger(__name__)
 
