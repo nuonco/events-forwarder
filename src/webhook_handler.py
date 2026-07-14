@@ -94,71 +94,28 @@ class WebhookHandler:
             logger.info(f"DEBUG - Links data: {webhook.data.links}")
         logger.info(f"DEBUG - Full data object: {webhook.data}")
         
-        # PROCESS TRACKED EVENTS
-        # Send to configured integrations
+        # SEND TO INTEGRATIONS
+        # No filtering - each integration decides what to do with the webhook
+        logger.info(f"Sending webhook to integrations: {webhook.nuonkind} - {webhook.nuontransition}")
         
-        # ACTION-SPECIFIC PROCESSING
-        if webhook.is_action_success():
-            action_name = webhook.get_action_name()
-            logger.info(f"Processing action success: {action_name}")
-            
-            # Send to integrations
-            await self._send_to_integrations(
-                webhook,
-                event_type="action",
-                event_name=action_name
-            )
-            
-            return {
-                "status": "success",
-                "message": f"Action success event processed: {action_name}",
-                "action": action_name
-            }
+        await self._send_to_integrations(webhook)
         
-        # COMPONENT-SPECIFIC PROCESSING
-        elif webhook.is_component_success():
-            component_name = webhook.get_component_name()
-            logger.info(f"Processing component success: {component_name}")
-            
-            # Send to integrations
-            await self._send_to_integrations(
-                webhook,
-                event_type="component",
-                event_name=component_name
-            )
-            
-            return {
-                "status": "success",
-                "message": f"Component success event processed: {component_name}",
-                "component": component_name
-            }
-        
-        else:
-            # Not a tracked webhook type - log and ignore
-            logger.info(
-                f"Webhook is not a tracked event (kind={webhook.nuonkind}, "
-                f"transition={webhook.nuontransition}, interests={webhook.interests}) - ignoring"
-            )
-            return {
-                "status": "ignored",
-                "message": "Not a tracked event - no action taken",
-                "kind": webhook.nuonkind,
-                "transition": webhook.nuontransition
-            }
+        return {
+            "status": "processed",
+            "message": f"Webhook sent to integrations: {webhook.nuonkind} - {webhook.nuontransition}",
+            "kind": webhook.nuonkind,
+            "transition": webhook.nuontransition
+        }
 
-    async def _send_to_integrations(
-        self,
-        webhook: NuonWebhook,
-        event_type: str,
-        event_name: str
-    ) -> bool:
+    async def _send_to_integrations(self, webhook: NuonWebhook) -> bool:
         """
         Send webhook to all configured integrations.
         
+        No filtering or routing - just passes the webhook to each integration.
+        Each integration decides internally what to do with it.
+        
         Args:
             webhook: The parsed Nuon webhook
-            event_type: Type of event ("action" or "component")
-            event_name: Name of the event for logging
             
         Returns:
             True if all integrations succeeded
@@ -171,14 +128,15 @@ class WebhookHandler:
             integration_name = integration.__class__.__name__
             
             try:
-                success = await integration.send(webhook, event_type)
+                # Pass empty event_type - integrations handle their own routing
+                success = await integration.send(webhook, event_type="")
                 if success:
-                    logger.info(f"Sent {event_type} event to {integration_name}: {event_name}")
+                    logger.info(f"Successfully sent webhook to {integration_name}")
                 else:
-                    logger.error(f"Failed to send {event_type} event to {integration_name}: {event_name}")
+                    logger.error(f"Failed to send webhook to {integration_name}")
                     raise HTTPException(
                         status_code=500,
-                        detail=f"Failed to forward event to {integration_name}"
+                        detail=f"Failed to send webhook to {integration_name}"
                     )
             except HTTPException:
                 # Re-raise HTTPExceptions from integrations
@@ -188,7 +146,7 @@ class WebhookHandler:
                 logger.error(f"Unexpected error sending to {integration_name}: {str(e)}")
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Unexpected error forwarding to {integration_name}"
+                    detail=f"Unexpected error sending to {integration_name}"
                 )
         
         return True
