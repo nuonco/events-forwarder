@@ -30,9 +30,11 @@ class DataDogClient:
         """
         Send webhook to DataDog (implements BaseIntegration interface).
         
+        Routes to either custom parsing or forwarding based on DATADOG_PARSING_MODE.
+        
         Args:
             webhook: The parsed Nuon webhook
-            event_type: Type of event ("action" or "component")
+            event_type: Type of event ("action" or "component") - only used in custom mode
             
         Returns:
             True if successful
@@ -40,16 +42,22 @@ class DataDogClient:
         Raises:
             HTTPException: If sending fails
         """
-        if event_type == "action":
-            return await self.send_action_success_event(webhook)
-        elif event_type == "component":
-            return await self.send_component_success_event(webhook)
+        # Check parsing mode
+        if Config.DATADOG_PARSING_MODE == "custom":
+            # Custom parsing mode - use resource-specific handlers
+            if event_type == "action":
+                return await self.send_action_success_event(webhook)
+            elif event_type == "component":
+                return await self.send_component_success_event(webhook)
+            else:
+                logger.error(f"Unknown event type: {event_type}")
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Unknown event type: {event_type}"
+                )
         else:
-            logger.error(f"Unknown event type: {event_type}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Unknown event type: {event_type}"
-            )
+            # Forward mode - generic handling for all webhook types
+            return await self._send_forward(webhook)
 
     # ACTION EVENT METHODS
     async def send_action_success_event(self, webhook: NuonWebhook) -> bool:
