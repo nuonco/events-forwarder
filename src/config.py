@@ -22,18 +22,6 @@ class Config:
     DATADOG_EVENTS_URL: str = "https://api.us5.datadoghq.com/api/v1/events"
     DATADOG_METRICS_URL: str = "https://api.us5.datadoghq.com/api/v2/series"
     
-    # DATADOG PARSING MODE
-    # Controls how webhook data is processed and sent to DataDog.
-    #
-    # "forward" - Simple forwarding:
-    #   - Generic titles, JSON blob messages, basic tags
-    #   - Works automatically for all webhook types
-    #
-    # "custom" - Custom parsing:
-    #   - Descriptive titles, formatted messages, rich tags
-    #   - Detailed metrics and powerful filtering
-    DATADOG_PARSING_MODE: str = os.getenv("DATADOG_PARSING_MODE", "forward")
-    
     # App settings
     PORT: int = int(os.getenv("PORT", "8080"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
