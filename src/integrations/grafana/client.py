@@ -3,12 +3,13 @@
 import logging
 import time
 import base64
+import snappy
 from typing import List, Dict, Any
 from fastapi import HTTPException
-from prometheus_client import CollectorRegistry, Gauge
-from prometheus_client.exposition import basic_auth_handler
-from prometheus_client.openmetrics.exposition import generate_latest
 import httpx
+
+from prometheus_client.core import CollectorRegistry, Gauge
+from prometheus_client.exposition import generate_latest
 
 from ...config import Config
 from ...models import NuonWebhook
@@ -133,6 +134,139 @@ class GrafanaClient:
         
         return labels
 
+    # PROTOBUF MESSAGE BUILDER
+    def _build_remote_write_request(self, metrics: List[Dict[str, Any]], labels: Dict[str, str], timestamp: int) -> bytes:
+        """
+        Build Prometheus Remote Write protobuf message.
+        
+        Uses simplified protobuf construction following Prometheus spec.
+        
+        Args:
+            metrics: List of metric dictionaries
+            labels: Label key-value pairs
+            timestamp: Unix timestamp (seconds)
+            
+        Returns:
+            Protobuf-encoded bytes
+        """
+        from google.protobuf import text_format
+        from google.protobuf.message import Message
+        
+        # Build time series for each metric
+        timeseries = []
+        timestamp_ms = timestamp * 1000  # Convert to milliseconds
+        
+        for metric in metrics:
+            # Build labels for this metric (metric name + common labels)
+            metric_labels = [{"name": "__name__", "value": metric["name"]}]
+            for k, v in labels.items():
+                metric_labels.append({"name": k, "value": v})
+            
+            # Build sample (timestamp + value)
+            sample = {"value": metric["value"], "timestamp": timestamp_ms}
+            
+            # Build time series
+            timeseries.append({
+                "labels": metric_labels,
+                "samples": [sample]
+            })
+        
+        # Build write request
+        write_request = {"timeseries": timeseries}
+        
+        # Convert to protobuf bytes using manual encoding
+        # This is a simplified protobuf encoding for Remote Write format
+        return self._encode_protobuf(write_request)
+    
+    def _encode_protobuf(self, data: dict) -> bytes:
+        """
+        Manually encode data to Prometheus Remote Write protobuf format.
+        
+        This implements the minimal protobuf encoding needed for Remote Write.
+        
+        Args:
+            data: Dictionary with timeseries data
+            
+        Returns:
+            Protobuf-encoded bytes
+        """
+        # For now, use a simple encoding approach
+        # We'll encode the timeseries data following the Prometheus protobuf schema
+        
+        output = bytearray()
+        
+        for ts in data["timeseries"]:
+            # Encode each timeseries
+            ts_bytes = self._encode_timeseries(ts)
+            # Field 1 is repeated TimeSeries (wire type 2 = length-delimited)
+            output.append(0x0a)  # Field 1, wire type 2
+            output.extend(self._encode_varint(len(ts_bytes)))
+            output.extend(ts_bytes)
+        
+        return bytes(output)
+    
+    def _encode_timeseries(self, ts: dict) -> bytes:
+        """Encode a single timeseries to protobuf."""
+        output = bytearray()
+        
+        # Encode labels (field 1)
+        for label in ts["labels"]:
+            label_bytes = self._encode_label(label)
+            output.append(0x0a)  # Field 1, wire type 2
+            output.extend(self._encode_varint(len(label_bytes)))
+            output.extend(label_bytes)
+        
+        # Encode samples (field 2)
+        for sample in ts["samples"]:
+            sample_bytes = self._encode_sample(sample)
+            output.append(0x12)  # Field 2, wire type 2
+            output.extend(self._encode_varint(len(sample_bytes)))
+            output.extend(sample_bytes)
+        
+        return bytes(output)
+    
+    def _encode_label(self, label: dict) -> bytes:
+        """Encode a label to protobuf."""
+        output = bytearray()
+        
+        # Name (field 1, string)
+        name_bytes = label["name"].encode("utf-8")
+        output.append(0x0a)  # Field 1, wire type 2
+        output.extend(self._encode_varint(len(name_bytes)))
+        output.extend(name_bytes)
+        
+        # Value (field 2, string)
+        value_bytes = label["value"].encode("utf-8")
+        output.append(0x12)  # Field 2, wire type 2
+        output.extend(self._encode_varint(len(value_bytes)))
+        output.extend(value_bytes)
+        
+        return bytes(output)
+    
+    def _encode_sample(self, sample: dict) -> bytes:
+        """Encode a sample to protobuf."""
+        output = bytearray()
+        
+        # Value (field 1, double)
+        import struct
+        output.append(0x09)  # Field 1, wire type 1 (64-bit)
+        output.extend(struct.pack('<d', sample["value"]))
+        
+        # Timestamp (field 2, int64)
+        output.append(0x10)  # Field 2, wire type 0 (varint)
+        output.extend(self._encode_varint(sample["timestamp"]))
+        
+        return bytes(output)
+    
+    def _encode_varint(self, value: int) -> bytes:
+        """Encode an integer as a protobuf varint."""
+        output = bytearray()
+        while value > 127:
+            output.append((value & 0x7f) | 0x80)
+            value >>= 7
+        output.append(value & 0x7f)
+        return bytes(output)
+
     # SEND TO GRAFANA
     async def _send_to_grafana(self, metrics: List[Dict[str, Any]], labels: Dict[str, str], timestamp: int) -> bool:
         """
@@ -151,25 +285,11 @@ class GrafanaClient:
         Raises:
             HTTPException: If sending fails
         """
-        # Create a temporary registry for these metrics
-        registry = CollectorRegistry()
+        # Build protobuf message
+        protobuf_data = self._build_remote_write_request(metrics, labels, timestamp)
         
-        # Get label names and values
-        label_names = list(labels.keys())
-        label_values = list(labels.values())
-        
-        # Create and set each metric
-        for metric in metrics:
-            gauge = Gauge(
-                metric["name"],
-                f"Nuon webhook metric: {metric['name']}",
-                labelnames=label_names,
-                registry=registry
-            )
-            gauge.labels(*label_values).set(metric["value"])
-        
-        # Generate Prometheus exposition format
-        metrics_data = generate_latest(registry)
+        # Compress with Snappy
+        compressed_data = snappy.compress(protobuf_data)
         
         # Build Basic Auth header (base64-encoded)
         auth_string = f"{self.instance_id}:{self.api_token}"
@@ -180,10 +300,11 @@ class GrafanaClient:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     self.metrics_url,
-                    content=metrics_data,
+                    content=compressed_data,
                     headers={
                         "Authorization": f"Basic {auth_b64}",
-                        "Content-Type": "application/openmetrics-text",
+                        "Content-Encoding": "snappy",
+                        "Content-Type": "application/x-protobuf",
                         "X-Prometheus-Remote-Write-Version": "0.1.0"
                     },
                     timeout=10.0
