@@ -1,11 +1,13 @@
 """Grafana Cloud client for sending metrics."""
 
-import httpx
 import logging
 import time
-import base64
 from typing import List, Dict, Any
 from fastapi import HTTPException
+from prometheus_client import CollectorRegistry, Gauge
+from prometheus_client.exposition import basic_auth_handler
+from prometheus_client.openmetrics.exposition import generate_latest
+import httpx
 
 from ...config import Config
 from ...models import NuonWebhook
@@ -135,6 +137,8 @@ class GrafanaClient:
         """
         Send metrics to Grafana Cloud Prometheus endpoint.
         
+        Uses Prometheus Remote Write format (Protobuf + Snappy).
+        
         Args:
             metrics: List of metric dictionaries
             labels: Label key-value pairs
@@ -146,32 +150,38 @@ class GrafanaClient:
         Raises:
             HTTPException: If sending fails
         """
-        # Build series payload for Prometheus Remote Write
-        series = []
-        for metric in metrics:
-            # Combine metric-specific labels with common labels
-            metric_labels = {"__name__": metric["name"], **labels}
-            
-            series.append({
-                "labels": [{"name": k, "value": v} for k, v in metric_labels.items()],
-                "samples": [{"timestamp": timestamp * 1000, "value": metric["value"]}]
-            })
+        # Create a temporary registry for these metrics
+        registry = CollectorRegistry()
         
-        payload = {"timeseries": series}
+        # Get label names and values
+        label_names = list(labels.keys())
+        label_values = list(labels.values())
+        
+        # Create and set each metric
+        for metric in metrics:
+            gauge = Gauge(
+                metric["name"],
+                f"Nuon webhook metric: {metric['name']}",
+                labelnames=label_names,
+                registry=registry
+            )
+            gauge.labels(*label_values).set(metric["value"])
+        
+        # Generate Prometheus exposition format
+        metrics_data = generate_latest(registry)
         
         # Build Basic Auth header
         auth_string = f"{self.instance_id}:{self.api_token}"
-        auth_bytes = auth_string.encode("ascii")
-        auth_b64 = base64.b64encode(auth_bytes).decode("ascii")
         
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     self.metrics_url,
-                    json=payload,
+                    content=metrics_data,
                     headers={
-                        "Authorization": f"Basic {auth_b64}",
-                        "Content-Type": "application/json"
+                        "Authorization": f"Basic {auth_string}",
+                        "Content-Type": "application/openmetrics-text",
+                        "X-Prometheus-Remote-Write-Version": "0.1.0"
                     },
                     timeout=10.0
                 )
