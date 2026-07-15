@@ -10,6 +10,7 @@ import httpx
 
 from ...config import Config
 from ...models import NuonWebhook
+from ..utils import extract_metadata
 
 logger = logging.getLogger(__name__)
 
@@ -90,46 +91,17 @@ class GrafanaClient:
         """
         Build labels (Grafana's version of tags) from webhook.
         
+        Uses shared metadata extraction, returns as-is (dict format)
+        which is what Grafana expects.
+        
         Args:
             webhook: The parsed Nuon webhook
             
         Returns:
             Dictionary of label key-value pairs
         """
-        labels = {
-            # Always available
-            "source": "nuon",
-            "kind": webhook.nuonkind,
-            "transition": webhook.nuontransition,
-            "workflow_id": webhook.data.workflow.id,
-            "workflow_type": webhook.data.workflow.type,
-            "install_id": webhook.data.workflow.owner_id,
-            "org_id": webhook.data.org_id,
-        }
-        
-        # Extract resource and operation from interests
-        for interest in webhook.interests:
-            if interest.startswith("resource:"):
-                labels["resource"] = interest.split(":", 1)[1]
-            elif interest.startswith("op:"):
-                labels["operation"] = interest.split(":", 1)[1]
-        
-        # Add step-specific labels if this is a step event
-        if webhook.data.step:
-            labels["step_id"] = webhook.data.step.id
-            labels["step_name"] = webhook.data.step.name
-            labels["step_idx"] = str(webhook.data.step.idx)
-            labels["execution_type"] = webhook.data.step.execution_type
-            
-            # Add component_id if available
-            if webhook.data.step.component_id:
-                labels["component_id"] = webhook.data.step.component_id
-        
-        # Add outcome status if terminal
-        if webhook.data.outcome and webhook.data.outcome.status:
-            labels["outcome_status"] = webhook.data.outcome.status
-        
-        return labels
+        # Extract metadata using shared helper (already in dict format for Grafana)
+        return extract_metadata(webhook)
 
     # PROTOBUF MESSAGE BUILDER
     def _build_remote_write_request(self, metrics: List[Dict[str, Any]], labels: Dict[str, str], timestamp: int) -> bytes:
