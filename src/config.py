@@ -22,6 +22,11 @@ class Config:
     DATADOG_EVENTS_URL: str = "https://api.us5.datadoghq.com/api/v1/events"
     DATADOG_METRICS_URL: str = "https://api.us5.datadoghq.com/api/v2/series"
     
+    # Grafana Cloud API credentials
+    GRAFANA_METRICS_URL: str = os.getenv("GRAFANA_METRICS_URL", "")
+    GRAFANA_INSTANCE_ID: str = os.getenv("GRAFANA_INSTANCE_ID", "")
+    GRAFANA_API_TOKEN: str = os.getenv("GRAFANA_API_TOKEN", "")
+    
     # App settings
     PORT: int = int(os.getenv("PORT", "8080"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
