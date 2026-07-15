@@ -86,7 +86,7 @@ labels = extract_metadata(webhook)
 | Platform | Link |
 |----------|------|
 | Nuon Webhooks | [docs.nuon.co](https://docs.nuon.co/guides/webhooks#webhooks) |
-| DataDog API Keys | [docs.datadoghq.com](https://docs.datadoghq.com/account_management/api-app-keys/) |
+| DataDog | [docs.datadoghq.com](https://docs.datadoghq.com/) |
 | Grafana Cloud | [grafana.com/docs](https://grafana.com/docs/grafana-cloud/) |
 
 **Technical Specifications:**
