@@ -2,6 +2,7 @@
 
 import logging
 import time
+import base64
 from typing import List, Dict, Any
 from fastapi import HTTPException
 from prometheus_client import CollectorRegistry, Gauge
@@ -170,8 +171,10 @@ class GrafanaClient:
         # Generate Prometheus exposition format
         metrics_data = generate_latest(registry)
         
-        # Build Basic Auth header
+        # Build Basic Auth header (base64-encoded)
         auth_string = f"{self.instance_id}:{self.api_token}"
+        auth_bytes = auth_string.encode("ascii")
+        auth_b64 = base64.b64encode(auth_bytes).decode("ascii")
         
         try:
             async with httpx.AsyncClient() as client:
@@ -179,7 +182,7 @@ class GrafanaClient:
                     self.metrics_url,
                     content=metrics_data,
                     headers={
-                        "Authorization": f"Basic {auth_string}",
+                        "Authorization": f"Basic {auth_b64}",
                         "Content-Type": "application/openmetrics-text",
                         "X-Prometheus-Remote-Write-Version": "0.1.0"
                     },
