@@ -65,19 +65,40 @@ class DataDogClient:
         # Convert webhook to JSON blob
         text = json.dumps(webhook.dict(), indent=2)
         
-        # Build basic tags
+        # Build rich tags (matching Grafana labels)
         tags = [
             "source:nuon",
             f"kind:{webhook.nuonkind}",
             f"transition:{webhook.nuontransition}",
             f"workflow_type:{webhook.data.workflow.type}",
+            f"workflow_id:{webhook.data.workflow.id}",
+            f"install_id:{webhook.data.workflow.owner_id}",
             f"org_id:{webhook.data.org_id}",
         ]
         
-        # Extract resource and op from interests
+        # Extract resource and operation from interests
         for interest in webhook.interests:
-            if interest.startswith("resource:") or interest.startswith("op:"):
-                tags.append(interest)
+            if interest.startswith("resource:"):
+                tags.append(f"resource:{interest.split(':', 1)[1]}")
+            elif interest.startswith("op:"):
+                tags.append(f"operation:{interest.split(':', 1)[1]}")
+        
+        # Add step-specific tags if this is a step event
+        if webhook.data.step:
+            tags.extend([
+                f"step_id:{webhook.data.step.id}",
+                f"step_name:{webhook.data.step.name}",
+                f"step_idx:{webhook.data.step.idx}",
+                f"execution_type:{webhook.data.step.execution_type}",
+            ])
+            
+            # Add component_id if available
+            if webhook.data.step.component_id:
+                tags.append(f"component_id:{webhook.data.step.component_id}")
+        
+        # Add outcome status if terminal
+        if webhook.data.outcome and webhook.data.outcome.status:
+            tags.append(f"outcome_status:{webhook.data.outcome.status}")
         
         # Build event payload
         event_payload = {
