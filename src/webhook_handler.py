@@ -8,6 +8,7 @@ from fastapi import Request, HTTPException
 from .config import Config
 from .models import NuonWebhook
 from .integrations.datadog.client import DataDogClient
+from .integrations.grafana.client import GrafanaClient
 
 logger = logging.getLogger(__name__)
 
@@ -20,8 +21,11 @@ class WebhookHandler:
         # Initialize all enabled integrations
         self.integrations = []
         
-        # DataDog integration (always enabled for now)
+        # DataDog integration
         self.integrations.append(DataDogClient())
+        
+        # Grafana integration
+        self.integrations.append(GrafanaClient())
         
         # Future integrations will be added here:
         # if Config.PAGERDUTY_ENABLED:
