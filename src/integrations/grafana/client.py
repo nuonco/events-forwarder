@@ -8,9 +8,6 @@ from typing import List, Dict, Any
 from fastapi import HTTPException
 import httpx
 
-from prometheus_client.core import CollectorRegistry, Gauge
-from prometheus_client.exposition import generate_latest
-
 from ...config import Config
 from ...models import NuonWebhook
 
