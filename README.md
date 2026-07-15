@@ -79,17 +79,21 @@ labels = extract_metadata(webhook)
 # Result: {"source": "nuon", "kind": "workflow", "workflow_id": "abc123", ...}
 ```
 
-## Development
-
 ## References
 
 **Platform Documentation:**
-- [Nuon Webhooks](https://docs.nuon.co/guides/webhooks#webhooks)
-- [DataDog API & App Keys](https://docs.datadoghq.com/account_management/api-app-keys/)
-- [Grafana Cloud](https://grafana.com/docs/grafana-cloud/)
+
+| Platform | Link |
+|----------|------|
+| Nuon Webhooks | [docs.nuon.co](https://docs.nuon.co/guides/webhooks#webhooks) |
+| DataDog API Keys | [docs.datadoghq.com](https://docs.datadoghq.com/account_management/api-app-keys/) |
+| Grafana Cloud | [grafana.com/docs](https://grafana.com/docs/grafana-cloud/) |
 
 **Technical Specifications:**
-- [Prometheus Remote Write 2.0](https://prometheus.io/docs/specs/prw/remote_write_spec_2_0/)
-- [Protocol Buffers](https://protobuf.dev/)
-- [Snappy Compression](https://google.github.io/snappy/)
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
+
+| Technology | Link |
+|------------|------|
+| Prometheus Remote Write 2.0 | [prometheus.io](https://prometheus.io/docs/specs/prw/remote_write_spec_2_0/) |
+| Protocol Buffers | [protobuf.dev](https://protobuf.dev/) |
+| Snappy Compression | [google.github.io/snappy](https://google.github.io/snappy/) |
+| FastAPI | [fastapi.tiangolo.com](https://fastapi.tiangolo.com/) |
