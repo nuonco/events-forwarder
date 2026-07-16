@@ -31,21 +31,6 @@ class Config:
     PORT: int = int(os.getenv("PORT", "8080"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
-    @classmethod
-    def validate(cls) -> None:
-        """Validate that required environment variables are set."""
-        missing = []
-        
-        if not cls.DATADOG_API_KEY:
-            missing.append("DATADOG_API_KEY")
-        if not cls.DATADOG_APP_KEY:
-            missing.append("DATADOG_APP_KEY")
-        
-        if missing:
-            raise ValueError(
-                f"Missing required environment variables: {', '.join(missing)}"
-            )
 
-
-# Note: Validation is now optional - integrations check their own credentials
+# Note: Validation is now handled per-integration via the enabled flag
 # This allows running the app with only some integrations configured
