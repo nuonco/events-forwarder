@@ -23,6 +23,11 @@ class GrafanaClient:
         self.metrics_url = Config.GRAFANA_METRICS_URL
         self.instance_id = Config.GRAFANA_INSTANCE_ID
         self.api_token = Config.GRAFANA_API_TOKEN
+        
+        # Check if integration is enabled (credentials configured)
+        self.enabled = bool(self.metrics_url and self.instance_id and self.api_token)
+        if not self.enabled:
+            logger.info("Grafana integration disabled (credentials not configured)")
 
     # BASE INTEGRATION INTERFACE
     async def send(self, webhook: NuonWebhook, event_type: str) -> bool:

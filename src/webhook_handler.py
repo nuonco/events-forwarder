@@ -131,6 +131,11 @@ class WebhookHandler:
         for integration in self.integrations:
             integration_name = integration.__class__.__name__
             
+            # Skip disabled integrations
+            if not integration.enabled:
+                logger.debug(f"Skipping {integration_name} (not enabled)")
+                continue
+            
             try:
                 # Pass empty event_type - integrations handle their own routing
                 success = await integration.send(webhook, event_type="")

@@ -22,6 +22,11 @@ class DataDogClient:
         self.app_key = Config.DATADOG_APP_KEY
         self.events_url = Config.DATADOG_EVENTS_URL
         self.metrics_url = Config.DATADOG_METRICS_URL
+        
+        # Check if integration is enabled (credentials configured)
+        self.enabled = bool(self.api_key and self.app_key)
+        if not self.enabled:
+            logger.info("DataDog integration disabled (credentials not configured)")
 
     # BASE INTEGRATION INTERFACE
     async def send(self, webhook: NuonWebhook, event_type: str) -> bool:
