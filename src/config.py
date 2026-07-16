@@ -47,5 +47,5 @@ class Config:
             )
 
 
-# Validate config on import
-Config.validate()
+# Note: Validation is now optional - integrations check their own credentials
+# This allows running the app with only some integrations configured
