@@ -48,18 +48,12 @@ All integrations use a shared helper to extract metadata from webhooks. This kee
 # src/integrations/utils.py
 def extract_metadata(webhook: NuonWebhook) -> Dict[str, str]:
     metadata = {
-        "source": "nuon",
-        "kind": webhook.nuonkind,
-        "workflow_id": webhook.data.workflow.id,
-        "install_id": webhook.data.workflow.owner_id,
-        # ... all metadata fields
+        "workflow_type": webhook.data.workflow.type,
     }
     
-    # Add step-specific metadata if available
-    if webhook.data.step:
-        metadata["step_id"] = webhook.data.step.id
+    # Add step_name if this is a step event
+    if webhook.data.step and webhook.data.step.name:
         metadata["step_name"] = webhook.data.step.name
-        # ...
     
     return metadata
 ```
@@ -72,11 +66,42 @@ Each integration formats the metadata for its platform:
 # DataDog - formats as tags (list of "key:value" strings)
 metadata = extract_metadata(webhook)
 tags = [f"{key}:{value}" for key, value in metadata.items()]
-# Result: ["source:nuon", "kind:workflow", "workflow_id:abc123", ...]
+# Result: ["workflow_type:provision", "step_name:deploy api"]
 
 # Grafana - uses metadata directly as labels (dict)
 labels = extract_metadata(webhook)
-# Result: {"source": "nuon", "kind": "workflow", "workflow_id": "abc123", ...}
+# Result: {"workflow_type": "provision", "step_name": "deploy api"}
+```
+
+### Customizing Metadata
+
+The app is currently configured to use minimal low-cardinality fields.
+
+```python
+# src/integrations/utils.py
+def extract_metadata(webhook: NuonWebhook) -> Dict[str, str]:
+    metadata = {
+        "workflow_type": webhook.data.workflow.type,
+    }
+    
+    # Add step_name if this is a step event
+    if webhook.data.step and webhook.data.step.name:
+        metadata["step_name"] = webhook.data.step.name
+    
+    return metadata
+```
+
+To add more fields, reference the example below. See the [webhook documentation](https://docs.nuon.co/guides/webhooks#webhooks) for a full list of available fields.
+
+```python
+# src/integrations/utils.py
+def extract_metadata(webhook: NuonWebhook) -> Dict[str, str]:
+    metadata = {
+        "workflow_type": webhook.data.workflow.type,
+        "your_field_name": webhook.data.your_field,  # Add your field here
+    }
+    
+    return metadata
 ```
 
 ## References
