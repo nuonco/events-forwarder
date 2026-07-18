@@ -1,4 +1,4 @@
-"""FastAPI application for receiving Nuon webhooks and forwarding to DataDog."""
+"""FastAPI application for receiving Nuon webhooks and forwarding via OpenTelemetry."""
 
 import logging
 from fastapi import FastAPI, Request
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 # Initialize FastAPI app
 app = FastAPI(
-    title="DataDog Actions Monitor",
-    description="Webhook bridge for Nuon action failures to DataDog",
+    title="Events Forwarder",
+    description="Webhook bridge for Nuon events to observability platforms via OpenTelemetry",
     version="0.1.0"
 )
 
@@ -30,7 +30,7 @@ webhook_handler = WebhookHandler()
 async def root():
     """Health check endpoint."""
     return {
-        "service": "datadog-actions-monitor",
+        "service": "events-forwarder",
         "status": "healthy",
         "version": "0.1.0"
     }
@@ -41,7 +41,7 @@ async def health():
     """Health check endpoint for monitoring."""
     return {
         "status": "healthy",
-        "datadog_configured": bool(Config.DATADOG_API_KEY and Config.DATADOG_APP_KEY),
+        "otel_configured": bool(Config.OTEL_COLLECTOR_ENDPOINT),
         "webhook_secret_configured": bool(Config.NUON_WEBHOOK_SECRET)
     }
 
@@ -104,7 +104,7 @@ async def global_exception_handler(request: Request, exc: Exception):
 if __name__ == "__main__":
     import uvicorn
     
-    logger.info(f"Starting DataDog Actions Monitor on port {Config.PORT}")
+    logger.info(f"Starting Events Forwarder on port {Config.PORT}")
     uvicorn.run(
         app,
         host="0.0.0.0",
