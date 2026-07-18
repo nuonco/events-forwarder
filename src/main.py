@@ -54,8 +54,7 @@ async def receive_webhook(request: Request):
     This endpoint:
     1. Verifies the webhook signature (if secret is configured)
     2. Parses the CloudEvents payload
-    3. Checks if it's an action failure
-    4. Sends event to DataDog if it is
+    3. Forwards webhook as log to OTel Collector
     
     Returns:
         JSON response with processing status
