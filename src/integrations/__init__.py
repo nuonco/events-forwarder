@@ -1,4 +1,4 @@
 """Integration packages for forwarding Nuon webhooks to external services."""
 
 # This package contains:
-# - datadog/: DataDog integration for events and metrics
+# - otel/: OpenTelemetry integration for forwarding webhooks as logs to OTel Collector
