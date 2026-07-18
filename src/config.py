@@ -22,5 +22,5 @@ class Config:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
 
-# Note: Validation is now handled per-integration via the enabled flag
-# This allows running the app with only some integrations configured
+# Note: Platform-specific credentials are configured in otel-collector/config.yaml
+# The app only needs the OTel Collector endpoint to forward webhooks

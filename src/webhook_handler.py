@@ -7,7 +7,7 @@ from fastapi import Request, HTTPException
 
 from .config import Config
 from .models import NuonWebhook
-from .integrations.otel.client import OtelClient
+from .otel_client import OtelClient
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +16,11 @@ class WebhookHandler:
     """Handles Nuon webhook verification and processing."""
 
     def __init__(self):
-        """Initialize the webhook handler with configured integrations."""
-        # Initialize all enabled integrations
-        self.integrations = []
-        
-        # OTel integration - forwards all webhooks as logs to collector
-        self.integrations.append(OtelClient())
-        
+        """Initialize the webhook handler with OTel client."""
+        # OTel client forwards all webhooks as logs to collector
         # Platform routing handled by OTel Collector config
         # To add platforms: edit otel-collector/config.yaml
+        self.otel_client = OtelClient()
         
         self.webhook_secret = Config.NUON_WEBHOOK_SECRET
 
@@ -93,67 +89,50 @@ class WebhookHandler:
             logger.info(f"DEBUG - Links data: {webhook.data.links}")
         logger.info(f"DEBUG - Full data object: {webhook.data}")
         
-        # SEND TO INTEGRATIONS
-        # No filtering - each integration decides what to do with the webhook
-        logger.info(f"Sending webhook to integrations: {webhook.nuonkind} - {webhook.nuontransition}")
+        # SEND TO OTEL COLLECTOR
+        logger.info(f"Sending webhook to OTel Collector: {webhook.nuonkind} - {webhook.nuontransition}")
         
-        await self._send_to_integrations(webhook)
+        await self._send_to_otel(webhook)
         
         return {
             "status": "processed",
-            "message": f"Webhook sent to integrations: {webhook.nuonkind} - {webhook.nuontransition}",
+            "message": f"Webhook sent to OTel Collector: {webhook.nuonkind} - {webhook.nuontransition}",
             "kind": webhook.nuonkind,
             "transition": webhook.nuontransition
         }
 
-    async def _send_to_integrations(self, webhook: NuonWebhook) -> bool:
+    async def _send_to_otel(self, webhook: NuonWebhook) -> bool:
         """
-        Send webhook to all configured integrations.
-        
-        No filtering or routing - just passes the webhook to each integration.
-        Each integration decides internally what to do with it.
+        Send webhook to OTel Collector as a log.
         
         Args:
             webhook: The parsed Nuon webhook
             
         Returns:
-            True if all integrations succeeded
+            True if successful
             
         Raises:
-            HTTPException: If any integration forwarding fails
+            HTTPException: If sending to OTel Collector fails
         """
-        # Send to all configured integrations
-        for integration in self.integrations:
-            integration_name = integration.__class__.__name__
-            
-            # Skip disabled integrations
-            if not integration.enabled:
-                logger.debug(f"Skipping {integration_name} (not enabled)")
-                continue
-            
-            try:
-                # Pass empty event_type - integrations handle their own routing
-                success = await integration.send(webhook, event_type="")
-                if success:
-                    logger.info(f"Successfully sent webhook to {integration_name}")
-                else:
-                    logger.error(f"Failed to send webhook to {integration_name}")
-                    raise HTTPException(
-                        status_code=500,
-                        detail=f"Failed to send webhook to {integration_name}"
-                    )
-            except HTTPException:
-                # Re-raise HTTPExceptions from integrations
-                raise
-            except Exception as e:
-                # Catch any unexpected errors
-                logger.error(f"Unexpected error sending to {integration_name}: {str(e)}")
+        try:
+            success = await self.otel_client.send(webhook, event_type="")
+            if success:
+                logger.info("Successfully sent webhook to OTel Collector")
+                return True
+            else:
+                logger.error("Failed to send webhook to OTel Collector")
                 raise HTTPException(
                     status_code=500,
-                    detail=f"Unexpected error sending to {integration_name}"
+                    detail="Failed to send webhook to OTel Collector"
                 )
-        
-        return True
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Unexpected error sending to OTel Collector: {str(e)}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Unexpected error sending to OTel Collector: {str(e)}"
+            )
 
     def _verify_signature(self, raw_body: bytes, signature: str) -> bool:
         """
