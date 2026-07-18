@@ -7,8 +7,7 @@ from fastapi import Request, HTTPException
 
 from .config import Config
 from .models import NuonWebhook
-from .integrations.datadog.client import DataDogClient
-from .integrations.grafana.client import GrafanaClient
+from .integrations.otel.client import OtelClient
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +20,11 @@ class WebhookHandler:
         # Initialize all enabled integrations
         self.integrations = []
         
-        # DataDog integration
-        self.integrations.append(DataDogClient())
+        # OTel integration - forwards all webhooks as logs to collector
+        self.integrations.append(OtelClient())
         
-        # Grafana integration
-        self.integrations.append(GrafanaClient())
-        
-        # Future integrations will be added here:
-        # if Config.PAGERDUTY_ENABLED:
-        #     self.integrations.append(PagerDutyClient())
+        # Platform routing handled by OTel Collector config
+        # To add platforms: edit otel-collector/config.yaml
         
         self.webhook_secret = Config.NUON_WEBHOOK_SECRET
 
