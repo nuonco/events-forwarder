@@ -6,8 +6,8 @@ import json
 import time
 from fastapi import HTTPException
 
-from ...config import Config
-from ...models import NuonWebhook
+from .config import Config
+from .models import NuonWebhook
 
 logger = logging.getLogger(__name__)
 
@@ -18,19 +18,17 @@ class OtelClient:
     def __init__(self):
         """Initialize the OTel client with collector endpoint."""
         self.endpoint = Config.OTEL_COLLECTOR_ENDPOINT
-        self.enabled = True
         logger.info(f"OTel client initialized, sending to {self.endpoint}")
 
-    async def send(self, webhook: NuonWebhook, event_type: str) -> bool:
+    async def send(self, webhook: NuonWebhook) -> bool:
         """
         Send webhook as OTel log to collector.
         
         Converts Nuon webhook to OpenTelemetry log format and sends to collector.
-        No attributes/labels - just raw webhook JSON in log body.
+        The full webhook JSON is sent as the log body.
         
         Args:
             webhook: The parsed Nuon webhook
-            event_type: Not used (kept for interface compatibility)
             
         Returns:
             True if successful
@@ -74,7 +72,6 @@ class OtelClient:
         Build OpenTelemetry log format from webhook.
         
         Creates OTLP/HTTP JSON log format with webhook as body.
-        No attributes - keeping it minimal for now.
         
         Args:
             webhook: The parsed Nuon webhook
@@ -108,7 +105,6 @@ class OtelClient:
                         "body": {
                             "stringValue": webhook_json
                         }
-                        # No attributes - just raw webhook in body
                     }]
                 }]
             }]

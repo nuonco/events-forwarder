@@ -115,7 +115,7 @@ class WebhookHandler:
             HTTPException: If sending to OTel Collector fails
         """
         try:
-            success = await self.otel_client.send(webhook, event_type="")
+            success = await self.otel_client.send(webhook)
             if success:
                 logger.info("Successfully sent webhook to OTel Collector")
                 return True
