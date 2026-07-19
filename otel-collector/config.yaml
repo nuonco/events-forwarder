@@ -16,14 +16,10 @@ exporters:
     api:
       key: ${DATADOG_API_KEY}
       site: us5.datadoghq.com
-    app_key: ${DATADOG_APP_KEY}
-    
-  # Grafana Loki exporter
-  loki:
-    endpoint: ${GRAFANA_LOKI_URL}
-    headers:
-      X-Scope-OrgID: ${GRAFANA_LOKI_INSTANCE_ID}
-    tenant_id: ${GRAFANA_LOKI_INSTANCE_ID}
+
+  # Grafana Loki exporter (using otlphttp)
+  otlphttp/loki:
+    endpoint: https://${GRAFANA_LOKI_URL}/otlp
     auth:
       authenticator: basicauth
 
@@ -41,4 +37,4 @@ service:
       processors: [batch]
       # To disable a platform: remove it from the exporters list
       # To add a platform: add exporter config above and include it here
-      exporters: [datadog, loki]
+      exporters: [datadog, otlphttp/loki]

@@ -20,9 +20,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Expose ports
-EXPOSE 8080  # FastAPI app
-EXPOSE 4318  # OTel Collector HTTP
-EXPOSE 4317  # OTel Collector gRPC
+EXPOSE 8080
+EXPOSE 4318
+EXPOSE 4317
 
 # Default command runs FastAPI app
 # fly.toml overrides this to run both app and collector processes
