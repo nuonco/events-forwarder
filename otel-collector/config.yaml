@@ -1,0 +1,40 @@
+receivers:
+  otlp:
+    protocols:
+      http:
+        endpoint: 0.0.0.0:4318
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+processors:
+  batch:
+    timeout: 10s
+
+exporters:
+  # DataDog exporter
+  datadog:
+    api:
+      key: ${DATADOG_API_KEY}
+      site: us5.datadoghq.com
+
+  # Grafana Loki exporter (using otlphttp)
+  otlphttp/loki:
+    endpoint: https://${GRAFANA_LOKI_URL}/otlp
+    auth:
+      authenticator: basicauth
+
+extensions:
+  basicauth:
+    client_auth:
+      username: ${GRAFANA_LOKI_INSTANCE_ID}
+      password: ${GRAFANA_LOKI_TOKEN}
+
+service:
+  extensions: [basicauth]
+  pipelines:
+    logs:
+      receivers: [otlp]
+      processors: [batch]
+      # To disable a platform: remove it from the exporters list
+      # To add a platform: add exporter config above and include it here
+      exporters: [datadog, otlphttp/loki]

@@ -1,0 +1,28 @@
+
+
+services:
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes:
+      - ./otel-collector/config.yaml:/etc/otelcol/config.yaml
+    ports:
+      - "4317:4317"  # OTLP gRPC
+      - "4318:4318"  # OTLP HTTP
+    environment:
+      - DATADOG_API_KEY=${DATADOG_API_KEY}
+      - GRAFANA_LOKI_URL=${GRAFANA_LOKI_URL}
+      - GRAFANA_LOKI_INSTANCE_ID=${GRAFANA_LOKI_INSTANCE_ID}
+      - GRAFANA_LOKI_TOKEN=${GRAFANA_LOKI_TOKEN}
+
+  app:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      - NUON_WEBHOOK_SECRET=${NUON_WEBHOOK_SECRET}
+      - OTEL_COLLECTOR_ENDPOINT=http://otel-collector:4318
+      - PORT=8080
+      - LOG_LEVEL=INFO
+    depends_on:
+      - otel-collector

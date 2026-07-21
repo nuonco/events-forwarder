@@ -1,3 +1,3 @@
-"""DataDog Actions Monitor - Webhook bridge for Nuon action failures."""
+"""Events Forwarder - Webhook bridge for Nuon events to observability platforms."""
 
 __version__ = "0.1.0"
